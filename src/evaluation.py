@@ -23,10 +23,19 @@ def evaluate_classification(y_true, y_pred, y_prob=None):
         "f1": f1_score(y_true, y_pred, average="binary", zero_division=0),
     }
     if y_prob is not None:
-        if len(y_prob.shape) > 1 and y_prob.shape[1] > 1:
-            y_prob = y_prob[:, 1]
         try:
-            metrics["auc"] = roc_auc_score(y_true, y_prob)
+            if hasattr(y_prob, "to_numpy"):
+                y_prob_array = y_prob.to_numpy()
+            else:
+                y_prob_array = np.asarray(y_prob)
+
+            if y_prob_array.ndim > 1:
+                if y_prob_array.shape[1] > 1:
+                    y_prob_array = y_prob_array[:, 1]
+                else:
+                    y_prob_array = y_prob_array.reshape(-1)
+
+            metrics["auc"] = roc_auc_score(y_true, y_prob_array)
         except:
             metrics["auc"] = None
     else:

@@ -55,3 +55,31 @@ python src/runner.py --task classification --algo random_forest
 python src/runner.py --task regression --algo lightgbm
 python src/runner.py --task classification --algo all
 ```
+
+
+ Dockerfile 已创建在 `/Users/user/code/github/automl_palyground/Dockerfile`。
+
+    主要内容：
+    - 基于 `python:3.13-slim`
+    - 安装 autogluon 1.5.0
+
+    **使用方式：**
+
+    ```bash
+    cd /Users/user/code/github/automl_palyground
+
+    # 构建镜像
+    docker build -t automl_playground .
+
+    # 运行容器
+    docker run --rm automl_playground
+
+    # 或交互式运行
+    docker run --rm -it automl_playground bash
+
+    # 自定义运行命令
+    docker run --rm automl_playground python src/runner.py --task classification --algo random_forest
+
+    # 挂载本地代码（开发时实时修改）
+    docker run --rm -v $(pwd):/workspace automl_playground python src/runner.py --task both --baseline
+    ```

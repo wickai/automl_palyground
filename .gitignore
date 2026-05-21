@@ -13,3 +13,13 @@ wandb/
 mlruns/
 *.log
 .DS_Store
+
+
+# 模型
+AutogluonModels/
+# 结果
+results*/
+
+.vscode/
+.python-version
+uv.lock

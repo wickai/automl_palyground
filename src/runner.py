@@ -108,7 +108,7 @@ def run_regression(algo=None, data_loader=None):
     return results
 
 
-def run_autogluon_baseline(task, data_loader):
+def run_autogluon_baseline(task, data_loader, num_bag_folds=0, eval_metric=None):
     """运行 AutoGluon 基线"""
     print("\n" + "="*60)
     print(f"AutoGluon Baseline - {task.upper()}")
@@ -125,12 +125,17 @@ def run_autogluon_baseline(task, data_loader):
             train_df['target'] = y_train.values
             
             start_time = time.time()
+            if eval_metric is None:
+                eval_metric = "roc_auc"
             predictor = TabularPredictor(
                 label='target',
                 problem_type='binary',
-                eval_metric='accuracy'
+                eval_metric=eval_metric
             )
-            predictor.fit(train_df, time_limit=120)  # 限制2分钟
+            fit_kwargs = {"time_limit": 120}
+            if num_bag_folds and num_bag_folds > 0:
+                fit_kwargs["num_bag_folds"] = num_bag_folds
+            predictor.fit(train_df, **fit_kwargs)  # 限制2分钟
             train_time = time.time() - start_time
             
             y_pred = predictor.predict(X_test)
@@ -198,6 +203,19 @@ def main():
         help="是否运行 AutoGluon 基线"
     )
     parser.add_argument(
+        "--ag-num-bag-folds",
+        type=int,
+        default=5,
+        help="AutoGluon bagging folds；建议>=5（0 表示不启用 bagging）"
+    )
+    parser.add_argument(
+        "--ag-eval-metric",
+        type=str,
+        default="roc_auc",
+        choices=["roc_auc", "f1", "recall", "accuracy", "log_loss"],
+        help="AutoGluon 分类任务的主评估指标（用于选模型）"
+    )
+    parser.add_argument(
         "--output",
         type=str,
         default="./results",
@@ -219,7 +237,12 @@ def main():
     if args.task in ["classification", "both"]:
         results = run_classification(algo=args.algo, data_loader=data_loader)
         if args.baseline:
-            baseline = run_autogluon_baseline("classification", data_loader)
+            baseline = run_autogluon_baseline(
+                "classification",
+                data_loader,
+                num_bag_folds=args.ag_num_bag_folds,
+                eval_metric=args.ag_eval_metric,
+            )
             results.update(baseline)
         all_results["tasks"]["classification"] = results
     
