@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "autogluon==1.5",
+    "autogluon-tabular[tabarena]==1.5.0",
     "catboost>=1.2.10",
     "lightgbm>=4.6.0",
     "numpy>=2.1.3",

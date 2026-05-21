@@ -10,6 +10,32 @@ from models.classification import CLASSIFICATION_MODELS, ALGO_DISPLAY_NAMES as C
 from models.regression import REGRESSION_MODELS, CLASSIFICATION_TO_REGRESSION
 
 
+AUTOGLUON_MODEL_ALIASES = {
+    "tabpfnv2": "REALTABPFN-V2",
+    "realtabpfn-v2": "REALTABPFN-V2",
+    "tabicl": "TABICL",
+}
+
+
+def build_autogluon_hyperparameters(model_names=None):
+    """将命令行模型名映射为 AutoGluon hyperparameters 配置。"""
+    if not model_names:
+        return None
+
+    hyperparameters = {}
+    for raw_name in model_names:
+        model_name = raw_name.strip().lower()
+        if not model_name:
+            continue
+        ag_model_name = AUTOGLUON_MODEL_ALIASES.get(model_name)
+        if ag_model_name is None:
+            valid = ", ".join(sorted(AUTOGLUON_MODEL_ALIASES.keys()))
+            raise ValueError(f"Unsupported AutoGluon model: {raw_name}. Valid options: {valid}")
+        hyperparameters[ag_model_name] = [{}]
+
+    return hyperparameters or None
+
+
 def run_classification(algo=None, data_loader=None):
     """运行分类任务"""
     print("\n" + "="*60)
@@ -108,7 +134,7 @@ def run_regression(algo=None, data_loader=None):
     return results
 
 
-def run_autogluon_baseline(task, data_loader, num_bag_folds=0, eval_metric=None):
+def run_autogluon_baseline(task, data_loader, num_bag_folds=0, eval_metric=None, model_names=None):
     """运行 AutoGluon 基线"""
     print("\n" + "="*60)
     print(f"AutoGluon Baseline - {task.upper()}")
@@ -127,6 +153,7 @@ def run_autogluon_baseline(task, data_loader, num_bag_folds=0, eval_metric=None)
             start_time = time.time()
             if eval_metric is None:
                 eval_metric = "roc_auc"
+            hyperparameters = build_autogluon_hyperparameters(model_names)
             predictor = TabularPredictor(
                 label='target',
                 problem_type='binary',
@@ -135,6 +162,8 @@ def run_autogluon_baseline(task, data_loader, num_bag_folds=0, eval_metric=None)
             fit_kwargs = {"time_limit": 120}
             if num_bag_folds and num_bag_folds > 0:
                 fit_kwargs["num_bag_folds"] = num_bag_folds
+            if hyperparameters is not None:
+                fit_kwargs["hyperparameters"] = hyperparameters
             predictor.fit(train_df, **fit_kwargs)  # 限制2分钟
             train_time = time.time() - start_time
             
@@ -216,6 +245,12 @@ def main():
         help="AutoGluon 分类任务的主评估指标（用于选模型）"
     )
     parser.add_argument(
+        "--ag-models",
+        type=str,
+        default="",
+        help="AutoGluon 分类模型，逗号分隔；例如 tabpfnv2,tabicl"
+    )
+    parser.add_argument(
         "--output",
         type=str,
         default="./results",
@@ -223,6 +258,7 @@ def main():
     )
     
     args = parser.parse_args()
+    ag_model_names = [name.strip() for name in args.ag_models.split(",") if name.strip()]
     
     import os
     os.makedirs(args.output, exist_ok=True)
@@ -242,6 +278,7 @@ def main():
                 data_loader,
                 num_bag_folds=args.ag_num_bag_folds,
                 eval_metric=args.ag_eval_metric,
+                model_names=ag_model_names,
             )
             results.update(baseline)
         all_results["tasks"]["classification"] = results

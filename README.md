@@ -55,9 +55,23 @@ python src/runner.py --task classification --algo random_forest
 python src/runner.py --task regression --algo lightgbm
 python src/runner.py --task classification --algo all
 ```
+## tabpfnv2， tabicl
+新算法评估
+```bash
+
+uv run python src/runner.py \
+  --task classification \
+  --algo random_forest \
+  --baseline \
+  --ag-num-bag-folds 5 \
+  --ag-eval-metric roc_auc \
+  --ag-models tabpfnv2,tabicl \
+  --output ./results
+```
 
 
- Dockerfile 已创建在 `/Users/user/code/github/automl_palyground/Dockerfile`。
+## Docker
+Dockerfile 已创建在 `/Users/user/code/github/automl_palyground/Dockerfile`。
 
     主要内容：
     - 基于 `python:3.13-slim`
