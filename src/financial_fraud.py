@@ -1,9 +1,9 @@
 """财务舞弊数据读取、预处理与训练流水线。
 
-该模块面向面板型财务数据，重点处理以下问题：
+该模块将数据视为普通表格分类任务，重点处理以下问题：
 1. Excel 读取时跳过前两行说明文字；
-2. 将 ``Stkcd`` 和 ``Accper`` 作为面板索引；
-3. 使用公司内按时间正向填充，尽量只利用历史信息补齐缺失；
+2. 将 ``Stkcd`` 和 ``Accper`` 作为样本索引，而不是时序特征；
+3. 不做公司内时序前向填充，避免引入时序假设；
 4. 对数值特征做分位数裁剪、缺失值填补和稳健缩放；
 5. 对类别特征做众数填补和独热编码；
 6. 使用 5 组分层三段切分，每组保持 train/validation/test=70%/10%/20%。
@@ -34,7 +34,7 @@ from evaluation import evaluate_classification
 DEFAULT_LABEL_COLUMNS = ["Vio", "V1", "V2", "V3", "V4", "V5"]
 PRIMARY_LABEL = "Vio"
 INDEX_COLUMNS = ["Stkcd", "Accper"]
-META_COLUMNS = ["ShortName"]
+META_COLUMNS = ["ShortName", "IndustryCode"]
 FRAUD_ALGO_DISPLAY_NAMES = {
     "logistic_regression": "1. Logistic Regression",
     "random_forest": "2. Random Forest",
@@ -280,16 +280,9 @@ def load_financial_fraud_excel(
     raw_df["Stkcd"] = raw_df["Stkcd"].astype(str)
     raw_df = raw_df.sort_values(["Stkcd", "Accper"]).drop_duplicates(["Stkcd", "Accper"], keep="last")
 
+    # 将公司和日期仅作为索引，不把年份、月份等时序信息注入特征。
     features = raw_df.drop(columns=label_columns + META_COLUMNS).copy()
-    features["FiscalYear"] = features["Accper"].dt.year.astype(int)
-    features["FiscalMonth"] = features["Accper"].dt.month.astype(int)
     features = features.set_index(INDEX_COLUMNS)
-
-    # 公司内只做正向填充，模拟真实预测时“只看到过去”的数据可得性。
-    temporal_fill_columns = list(features.columns)
-    features[temporal_fill_columns] = (
-        features.groupby(level="Stkcd", group_keys=False)[temporal_fill_columns].ffill()
-    )
 
     labels = _coerce_label_frame(raw_df, label_columns)
     labels.index = pd.MultiIndex.from_frame(raw_df[INDEX_COLUMNS], names=INDEX_COLUMNS)
